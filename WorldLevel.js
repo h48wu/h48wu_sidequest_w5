@@ -8,10 +8,10 @@ class WorldLevel {
     this.h = bg ? bg.height * this.bgScale : 4000;
     
     this.target = json.discoverableTarget ?? { x: 1600, y: 1200, note: "Peace." };
-    this.sceneryCount = json.sceneryCount ?? 200;
+    this.sceneryCount = json.sceneryCount ?? 300; // Increased to account for scattered flowers
     
-    this.scenery = [];
-    this.discoverableCluster = [];
+    // We will put ALL visual objects into one array so we can sort them by priority
+    this.allObjects = []; 
     this.hiddenSymbols = []; 
     
     this.activeNote = "";
@@ -22,32 +22,62 @@ class WorldLevel {
   }
 
   generateWorld() {
+    // Included flowers in the general pool so they scatter everywhere
     const generalSceneryTypes = [
-      'tree_1', 'tree_2', 'rock_1', 'rock_2', 'rock_3', 'rock_4', 'rock_5',
-      'stick_1', 'stick_2', 'sign_1', 'fence_1', 'grass_1', 'grass_2', 'grass_3', 'grass_4'
+      'tree_1', 'tree_2', 
+      'rock_1', 'rock_2', 'rock_3', 'rock_4', 'rock_5',
+      'stick_1', 'stick_2', 'sign_1', 'fence_1', 
+      'grass_1', 'grass_2', 'grass_3', 'grass_4',
+      'flower_1', 'flower_2', 'flower_3', 'flower_4', 
+      'flower_5', 'flower_6', 'flower_7', 'flower_8', 'flower_9'
     ];
     
     const flowerTypes = ['flower_1', 'flower_2', 'flower_3', 'flower_4', 'flower_5', 'flower_6', 'flower_7', 'flower_8', 'flower_9'];
 
+    // Helper function to assign rendering priority
+    const getPriority = (type) => {
+      if (type.startsWith('tree')) return 3; // Highest priority (drawn last, on top)
+      if (type.startsWith('rock')) return 2; // Medium priority
+      return 1; // Lowest priority (grass, sticks, flowers drawn first, on the bottom)
+    };
+
+    // 1. Scatter random scenery and flowers everywhere
     for (let i = 0; i < this.sceneryCount; i++) {
-      this.scenery.push({
-        type: random(generalSceneryTypes),
+      let type = random(generalSceneryTypes);
+      this.allObjects.push({
+        type: type,
         x: random(50, this.w - 100), 
-        y: random(50, this.h - 100)
+        y: random(50, this.h - 100),
+        priority: getPriority(type),
+        isCluster: false
       });
     }
 
-    // MAKE IT VISIBLE: Doubled the flowers to 50, widened the radius slightly
+    // 2. Generate the special dense flowerbed target
     for (let i = 0; i < 50; i++) {
       let angle = random(TWO_PI);
       let radius = random(0, 160); 
-      this.discoverableCluster.push({
-        type: random(flowerTypes),
+      let type = random(flowerTypes);
+      this.allObjects.push({
+        type: type,
         x: this.target.x + cos(angle) * radius,
-        y: this.target.y + sin(angle) * radius
+        y: this.target.y + sin(angle) * radius,
+        priority: getPriority(type), // Priority 1
+        isCluster: true
       });
     }
 
+    // 3. SORT EVERYTHING
+    // First by priority (Flowers -> Rocks -> Trees). 
+    // If priorities are equal, sort by Y-coordinate so objects lower on the screen overlap objects higher up.
+    this.allObjects.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.y - b.y;
+    });
+
+    // 4. Generate hidden symbols
     for (let i = 0; i < this.thoughts.length; i++) {
       this.hiddenSymbols.push({
         x: random(400, this.w - 400),
@@ -70,6 +100,7 @@ class WorldLevel {
   }
 
   drawWorld(player) {
+    // Draw visual world borders
     push();
     noFill();
     stroke(255, 255, 255, 60); 
@@ -77,18 +108,10 @@ class WorldLevel {
     rect(0, 0, this.w, this.h);
     pop();
 
-    for (let s of this.scenery) {
-      let img = this.assets[s.type];
-      if (img) {
-        image(img, s.x, s.y, img.width * 0.5, img.height * 0.5);
-      }
-    }
-
     let currentHoverNote = "";
     let distToTarget = dist(player.x, player.y, this.target.x, this.target.y);
 
-    // --- VISIBLE FLOWERBED GLOW ---
-    // Draws a soft, pulsing warm light underneath the flowers so they are easy to spot
+    // Draw the warm glow under the flowerbed FIRST, so it sits behind the sorted objects
     push();
     noStroke();
     let glowAlpha = map(sin(frameCount * 0.03), -1, 1, 20, 60);
@@ -96,31 +119,37 @@ class WorldLevel {
     circle(this.target.x, this.target.y, 450);
     pop();
 
-    // Draw the flowers
-    for (let f of this.discoverableCluster) {
-      let fImg = this.assets[f.type];
-      if (!fImg) continue;
+    // Iterate through the properly sorted master list
+    for (let obj of this.allObjects) {
+      let img = this.assets[obj.type];
+      if (!img) continue;
 
-      let drawW = fImg.width * 0.5;
-      let drawH = fImg.height * 0.5;
+      let drawW = img.width * 0.5;
+      let drawH = img.height * 0.5;
 
-      push();
-      if (distToTarget < 200) {
-        let scaleEffect = map(distToTarget, 0, 200, 1.2, 1.0);
-        translate(f.x + drawW/2, f.y + drawH/2);
-        scale(scaleEffect);
-        image(fImg, -drawW/2, -drawH/2, drawW, drawH);
-      } else {
-        image(fImg, f.x, f.y, drawW, drawH);
+      // If it's part of the discoverable flower cluster, gently bloom it when the player is near
+      if (obj.isCluster) {
+        push();
+        if (distToTarget < 200) {
+          let scaleEffect = map(distToTarget, 0, 200, 1.2, 1.0);
+          translate(obj.x + drawW/2, obj.y + drawH/2);
+          scale(scaleEffect);
+          image(img, -drawW/2, -drawH/2, drawW, drawH);
+          currentHoverNote = this.target.note;
+        } else {
+          image(img, obj.x, obj.y, drawW, drawH);
+        }
+        pop();
+      } 
+      // Otherwise, just draw normal scenery
+      else {
+        image(img, obj.x, obj.y, drawW, drawH);
       }
-      pop();
     }
-    
-    if (distToTarget < 200) {
-      currentHoverNote = this.target.note;
-    }
+
     this.drawGuideArrow(player, distToTarget);
 
+    // Draw hidden interactive symbols
     for (let sym of this.hiddenSymbols) {
       let d = dist(player.x, player.y, sym.x, sym.y);
       
@@ -148,6 +177,7 @@ class WorldLevel {
       }
     }
 
+    // Update the meditative text on the HUD
     if (currentHoverNote !== "") {
       this.activeNote = currentHoverNote;
       this.noteAlpha = lerp(this.noteAlpha, 255, 0.05);
