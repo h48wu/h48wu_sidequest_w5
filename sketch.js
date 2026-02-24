@@ -62,25 +62,32 @@ function setup() {
 function draw() {
   player.updateInput();
   
-  // Constrain the glowing dot so the camera stops EXACTLY at the world borders
+  // Constrain the glowing dot so the camera stops exactly at the massive background's borders
   player.x = constrain(player.x, width / 2, level.w - width / 2);
   player.y = constrain(player.y, height / 2, level.h - height / 2);
 
-  // Lock camera to the glowing dot (which acts as our lens)
+  // Lock camera to the glowing dot
   camX = player.x - width / 2;
   camY = player.y - height / 2;
 
-  // 1. Draw the FIXED background (drawn in SCREEN space)
-  level.drawBackground();
+  // Clear the void behind the world just in case
+  background(20);
 
-  // 2. Draw the SCROLLING world (drawn in WORLD space)
+  // --- EVERYTHING IN HERE SCROLLS ---
   push();
   translate(-camX, -camY);
+  
+  // 1. Draw the massive background image so we scroll over it
+  level.drawBackground();
+  
+  // 2. Draw the assets placed on top of it
   level.drawWorld(player); 
-  player.draw(); // The glowing dot
+  
+  // 3. Draw the glowing dot
+  player.draw(); 
   pop();
+  // ----------------------------------
 
-  // 3. Draw HUD (Text)
   level.drawHUD();
 }
 

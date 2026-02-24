@@ -2,11 +2,13 @@ class WorldLevel {
   constructor(json, assets) {
     this.assets = assets;
     
-    // Explicitly define a massive world, much larger than the screen
-    this.w = 6000;
-    this.h = 4000;
+    // Scale the background image up to create a MASSIVE world to explore
+    let bg = this.assets['background'];
+    this.bgScale = 2.0; 
+    this.w = bg ? bg.width * this.bgScale : 6000;
+    this.h = bg ? bg.height * this.bgScale : 4000;
     
-    this.target = json.discoverableTarget ?? { x: 4200, y: 2800, note: "Peace." };
+    this.target = json.discoverableTarget ?? { x: this.w * 0.75, y: this.h * 0.75, note: "Peace." };
     this.sceneryCount = json.sceneryCount ?? 200;
     
     this.scenery = [];
@@ -30,7 +32,7 @@ class WorldLevel {
       'flower_5', 'flower_6', 'flower_7', 'flower_8', 'flower_9'
     ];
 
-    // Scatter general scenery safely INSIDE the massive 6000x4000 borders
+    // Scatter general scenery safely INSIDE the massive world borders
     for (let i = 0; i < this.sceneryCount; i++) {
       let type = random(generalSceneryTypes);
       this.scenery.push({
@@ -40,7 +42,7 @@ class WorldLevel {
       });
     }
 
-    // Generate a dense cluster of flowers at the target location for discovery
+    // Generate the discoverable flower cluster
     for (let i = 0; i < 25; i++) {
       let angle = random(TWO_PI);
       let radius = random(0, 120); 
@@ -56,16 +58,18 @@ class WorldLevel {
   drawBackground() {
     let bg = this.assets['background'];
     if (bg) {
-      // FIXED BACKGROUND: We draw it exactly to the screen's width and height.
-      // Because this is drawn in sketch.js BEFORE the camera translates, it will never move.
-      image(bg, 0, 0, width, height);
+      // DRAW THE MASSIVE BACKGROUND
+      // Because this is now inside the translate() block in sketch.js, the camera will pan over it.
+      image(bg, 0, 0, this.w, this.h);
     } else {
-      background(245, 248, 250); 
+      noStroke();
+      fill(245, 248, 250);
+      rect(0, 0, this.w, this.h); 
     }
   }
 
   drawWorld(player) {
-    // Draw a soft visual border so you can actually see the edge of the 6000x4000 world
+    // Draw visual world borders
     push();
     noFill();
     stroke(255, 255, 255, 60); 
@@ -94,7 +98,6 @@ class WorldLevel {
       let drawH = fImg.height * 0.5;
 
       push();
-      // Gently bloom when discovered
       if (distToTarget < 200) {
         let scaleEffect = map(distToTarget, 0, 200, 1.2, 1.0);
         translate(f.x + drawW/2, f.y + drawH/2);
@@ -106,7 +109,6 @@ class WorldLevel {
       pop();
     }
 
-    // Update text note logic
     if (distToTarget < 200) {
       this.activeNote = this.target.note;
       this.noteAlpha = lerp(this.noteAlpha, 255, 0.05);
