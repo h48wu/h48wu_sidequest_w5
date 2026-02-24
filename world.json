@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 5,
+  "playerStart": {
+    "x": 800,
+    "y": 600
+  },
+  "discoverableTarget": {
+    "x": 4200,
+    "y": 2800,
+    "note": "You found it. Take a breath."
+  },
+  "sceneryCount": 200
+}
