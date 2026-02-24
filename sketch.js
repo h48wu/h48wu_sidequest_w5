@@ -57,36 +57,34 @@ function setup() {
 
   const start = worldData.playerStart ?? { x: 800, y: 600 };
   player = new Player(start.x, start.y);
+  
+  camX = player.x - width / 2;
+  camY = player.y - height / 2;
 }
 
 function draw() {
   player.updateInput();
   
-  // Constrain the glowing dot so the camera stops exactly at the massive background's borders
   player.x = constrain(player.x, width / 2, level.w - width / 2);
   player.y = constrain(player.y, height / 2, level.h - height / 2);
 
-  // Lock camera to the glowing dot
-  camX = player.x - width / 2;
-  camY = player.y - height / 2;
+  let targetCamX = player.x - width / 2;
+  let targetCamY = player.y - height / 2;
 
-  // Clear the void behind the world just in case
+  // INCREASED from 0.08 to 0.15 so the camera keeps up with your faster movement
+  camX = lerp(camX, targetCamX, 0.15);
+  camY = lerp(camY, targetCamY, 0.15);
+
   background(20);
 
-  // --- EVERYTHING IN HERE SCROLLS ---
   push();
   translate(-camX, -camY);
   
-  // 1. Draw the massive background image so we scroll over it
   level.drawBackground();
-  
-  // 2. Draw the assets placed on top of it
   level.drawWorld(player); 
-  
-  // 3. Draw the glowing dot
   player.draw(); 
+  
   pop();
-  // ----------------------------------
 
   level.drawHUD();
 }
